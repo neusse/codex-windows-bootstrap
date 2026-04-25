@@ -4,7 +4,8 @@ This skill bootstraps and verifies a Windows machine for Codex development workf
 
 ## What It Checks
 
-- Core tools: `git`, `python`, `node`, `npm`, `gh`, `rg`, `uv`
+- Baseline prerequisites: `python` (must be `>= 3.11`), `vscode` (`code --version`)
+- Core tools: `git`, `node`, `npm`, `gh`, `rg`, `uv`
 - Python tooling support: `python -m virtualenv --version`, `python -m pylint --version` (installs missing Python packages in auto mode)
 - Git identity: `git config --global user.name/user.email`
 - GitHub auth: `gh auth status` (active account)
@@ -13,6 +14,7 @@ This skill bootstraps and verifies a Windows machine for Codex development workf
 
 The script supports one-shot setup mode:
 
+- `-AutoInstall` installs missing baseline prerequisites first (`Python.Python.3.13`, `Microsoft.VisualStudioCode`)
 - `-AutoInstall` installs missing core tools with `winget`
 - `-AutoInstall` installs missing `virtualenv` module with `python -m pip install --user virtualenv`
 - `-AutoInstall` installs missing `pylint` module with `python -m pip install --user pylint`

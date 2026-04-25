@@ -67,6 +67,79 @@ function Install-WingetPackage {
     }
 }
 
+function Test-PythonMinimumVersion {
+    $minimumVersion = [version]"3.11.0"
+    $result = [ordered]@{
+        Name = "python"
+        Ok = $false
+        Details = ""
+    }
+
+    $python = Get-Command python -ErrorAction SilentlyContinue
+    if (-not $python) {
+        $result.Details = "python not found (requires >= 3.11)"
+        return [pscustomobject]$result
+    }
+
+    $out = python --version 2>&1
+    $detailsText = ($out | Out-String).Trim()
+    $match = [regex]::Match($detailsText, "(\d+\.\d+\.\d+)")
+    if (-not $match.Success) {
+        $result.Details = "$detailsText (unable to parse version; requires >= 3.11)"
+        return [pscustomobject]$result
+    }
+
+    $versionText = $match.Groups[1].Value
+    $version = [version]$versionText
+    if ($version -ge $minimumVersion) {
+        $result.Ok = $true
+        $result.Details = $detailsText
+    }
+    else {
+        $result.Details = "$detailsText (requires >= 3.11)"
+    }
+
+    return [pscustomobject]$result
+}
+
+function Test-VSCode {
+    $result = [ordered]@{
+        Name = "vscode"
+        Ok = $false
+        Details = ""
+    }
+
+    $codeCmd = Get-Command code -ErrorAction SilentlyContinue
+    $candidates = @()
+    if ($codeCmd) {
+        $candidates += $codeCmd.Source
+    }
+    $candidates += @(
+        (Join-Path $env:LOCALAPPDATA "Programs\Microsoft VS Code\bin\code.cmd"),
+        (Join-Path $env:ProgramFiles "Microsoft VS Code\bin\code.cmd"),
+        (Join-Path ${env:ProgramFiles(x86)} "Microsoft VS Code\bin\code.cmd")
+    ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+
+    foreach ($candidate in $candidates | Select-Object -Unique) {
+        if (-not (Test-Path $candidate)) {
+            continue
+        }
+        $out = & $candidate --version 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            $result.Ok = $true
+        }
+        $result.Details = ($out | Out-String).Trim()
+        if ($result.Ok) {
+            return [pscustomobject]$result
+        }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($result.Details)) {
+        $result.Details = "VS Code not found"
+    }
+    return [pscustomobject]$result
+}
+
 function Get-OptionalWingetPackageIds {
     return @(
         "jqlang.jq",
@@ -298,7 +371,8 @@ function Get-Checks {
     $checks = @()
 
     $git = Test-Command -Name "git"
-    $python = Test-Command -Name "python"
+    $python = Test-PythonMinimumVersion
+    $vscode = Test-VSCode
     $node = Test-Command -Name "node"
     $npm = Test-Command -Name "npm"
     $gh = Test-Command -Name "gh"
@@ -309,6 +383,7 @@ function Get-Checks {
 
     Add-CheckResult -List ([ref]$checks) -Name "git" -Ok $git.Ok -Details $git.Details
     Add-CheckResult -List ([ref]$checks) -Name "python" -Ok $python.Ok -Details $python.Details
+    Add-CheckResult -List ([ref]$checks) -Name "vscode" -Ok $vscode.Ok -Details $vscode.Details
     Add-CheckResult -List ([ref]$checks) -Name "node" -Ok $node.Ok -Details $node.Details
     Add-CheckResult -List ([ref]$checks) -Name "npm" -Ok $npm.Ok -Details $npm.Details
     Add-CheckResult -List ([ref]$checks) -Name "gh" -Ok $gh.Ok -Details $gh.Details
@@ -357,15 +432,20 @@ if (($ConfigureGit -or (-not [string]::IsNullOrWhiteSpace($GitUserName) -or -not
 $checks = Get-Checks
 
 if ($AutoInstall) {
+    $needPython = (($checks | Where-Object { $_.Name -eq "python" }).Ok -eq $false)
+    $needVsCode = (($checks | Where-Object { $_.Name -eq "vscode" }).Ok -eq $false)
     $needNode = (($checks | Where-Object { $_.Name -eq "node" }).Ok -eq $false) -or (($checks | Where-Object { $_.Name -eq "npm" }).Ok -eq $false)
     $needGh = (($checks | Where-Object { $_.Name -eq "gh" }).Ok -eq $false)
     $needRg = (($checks | Where-Object { $_.Name -eq "rg" }).Ok -eq $false)
     $needUv = (($checks | Where-Object { $_.Name -eq "uv" }).Ok -eq $false)
-    $pythonOk = (($checks | Where-Object { $_.Name -eq "python" }).Ok -eq $true)
-    $needPyVirtualenv = (($checks | Where-Object { $_.Name -eq "python.virtualenv" }).Ok -eq $false)
-    $needPyPylint = (($checks | Where-Object { $_.Name -eq "python.pylint" }).Ok -eq $false)
-    $pythonScriptsPath = Convert-ToUserProfilePath -PathValue (Get-PythonUserScriptsPath)
-    $legacyPythonScriptsPath = Convert-ToUserProfilePath -PathValue (Get-PythonLegacyUserScriptsPath)
+
+    # Install baseline prerequisites first.
+    if ($needPython) {
+        $actions += (Install-WingetPackage -Id "Python.Python.3.13")
+    }
+    if ($needVsCode) {
+        $actions += (Install-WingetPackage -Id "Microsoft.VisualStudioCode")
+    }
 
     if ($needNode) {
         $actions += (Install-WingetPackage -Id "OpenJS.NodeJS.LTS")
@@ -394,6 +474,17 @@ if ($AutoInstall) {
         }
     }
 
+    $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+    $machinePath = [Environment]::GetEnvironmentVariable("Path", "Machine")
+    $env:Path = [Environment]::ExpandEnvironmentVariables("$userPath;$machinePath")
+
+    $checks = Get-Checks
+    $pythonOk = (($checks | Where-Object { $_.Name -eq "python" }).Ok -eq $true)
+    $needPyVirtualenv = (($checks | Where-Object { $_.Name -eq "python.virtualenv" }).Ok -eq $false)
+    $needPyPylint = (($checks | Where-Object { $_.Name -eq "python.pylint" }).Ok -eq $false)
+    $pythonScriptsPath = Convert-ToUserProfilePath -PathValue (Get-PythonUserScriptsPath)
+    $legacyPythonScriptsPath = Convert-ToUserProfilePath -PathValue (Get-PythonLegacyUserScriptsPath)
+
     if ($pythonOk -and $needPyVirtualenv) {
         $actions += (Install-PythonPackage -Package "virtualenv")
     }
@@ -410,12 +501,11 @@ if ($AutoInstall) {
     $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
     $machinePath = [Environment]::GetEnvironmentVariable("Path", "Machine")
     $env:Path = [Environment]::ExpandEnvironmentVariables("$userPath;$machinePath")
-
     $checks = Get-Checks
 }
 
 $installed = @($checks | Where-Object { $_.Ok })
-$missing = @($checks | Where-Object { -not $_.Ok -and $_.Name -in @("node", "npm", "gh", "rg", "uv", "python.virtualenv", "python.pylint") })
+$missing = @($checks | Where-Object { -not $_.Ok -and $_.Name -in @("python", "vscode", "node", "npm", "gh", "rg", "uv", "python.virtualenv", "python.pylint") })
 $misconfigured = @($checks | Where-Object { -not $_.Ok -and $_.Name -in @("git.user.name", "git.user.email", "gh.auth") })
 $ready = (($missing.Length -eq 0) -and ($misconfigured.Length -eq 0))
 
