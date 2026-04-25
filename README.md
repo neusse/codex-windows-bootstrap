@@ -35,26 +35,26 @@ You only need to respond to installer/UAC/login prompts when Windows or GitHub r
 
 The script treats these as baseline requirements and installs missing ones first in `-AutoInstall` mode:
 
-- Python `>= 3.11` (installed via `Python.Python.3.13`)
-- VS Code (`code --version`, installed via `Microsoft.VisualStudioCode`)
+- `python` - Python interpreter (`>= 3.11`; installed via `Python.Python.3.13`)
+- `code` - Visual Studio Code CLI (`code --version`; installed via `Microsoft.VisualStudioCode`)
 
 ## Core Tools (Checked And Installed By Bootstrap)
 
 The script checks these and installs missing ones in `-AutoInstall` mode:
 
-- `git`
-- `node`
-- `npm`
-- `gh`
-- `rg`
-- `uv`
+- `git` - Git version control
+- `node` - Node.js runtime
+- `npm` - Node package manager
+- `gh` - GitHub CLI
+- `rg` - ripgrep fast file/text search
+- `uv` - Astral `uv` Python/package environment tool
 
 ## Python Tooling (Checked And Installed By Bootstrap)
 
 The script checks these and installs missing ones in `-AutoInstall` mode:
 
-- `python -m virtualenv --version`
-- `python -m pylint --version`
+- `python -m virtualenv --version` - `virtualenv` Python environment module
+- `python -m pylint --version` - `pylint` Python linter module
 
 It also ensures Python user Scripts is on user `PATH` using a `%USERPROFILE%`-based entry.
 
@@ -62,11 +62,11 @@ It also ensures Python user Scripts is on user `PATH` using a `%USERPROFILE%`-ba
 
 Optional utilities can be installed on request:
 
-- `jq`
-- `fd`
-- `bat`
-- `Git LFS`
-- `Docker Desktop`
+- `jq` - command-line JSON processor
+- `fd` - fast file finder
+- `bat` - `cat` replacement with syntax highlighting
+- `Git LFS` - Git Large File Storage support
+- `Docker Desktop` - local container runtime and tooling
 
 Use `-PromptOptionalTools` to ask interactively, or `-InstallOptionalTools` to install without prompting.
 
@@ -75,6 +75,22 @@ Use `-PromptOptionalTools` to ask interactively, or `-InstallOptionalTools` to i
 1. Copy this folder to `%USERPROFILE%\.codex\skills\codex-windows-bootstrap`
 2. Restart Codex (or open a new Codex session)
 3. Trigger with `Use $codex-windows-bootstrap to bootstrap this machine.`
+
+## Install And Use After Codex Is Already Installed
+
+If Codex is already installed on the machine, install this skill with these steps:
+
+1. Open PowerShell.
+2. Create the skill directory if it does not exist:
+```powershell
+New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.codex\skills\codex-windows-bootstrap"
+```
+3. Copy this repo's files into that directory (`README.md`, `SKILL.md`, `agents`, `scripts`).
+4. Restart Codex (or start a new Codex session) so it loads the skill.
+5. In Codex, run:
+```text
+Use $codex-windows-bootstrap to bootstrap this machine.
+```
 
 ## Script Usage
 
