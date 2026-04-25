@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codex Windows Bootstrap"
+  short_description: "Bootstrap and verify Windows Codex dev setup"
+  default_prompt: "Audit this Windows machine for Codex readiness, install missing core tools with winget, configure Git identity, verify GitHub auth, and report final ready/not-ready status."
