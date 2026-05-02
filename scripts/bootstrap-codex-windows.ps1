@@ -4,7 +4,9 @@ param(
     [switch]$ConfigureGit,
     [switch]$AutoInstall,
     [switch]$InstallOptionalTools,
-    [switch]$PromptOptionalTools
+    [switch]$PromptOptionalTools,
+    [switch]$InstallPdfTools,
+    [switch]$PromptPdfTools
 )
 
 Set-StrictMode -Version Latest
@@ -67,79 +69,6 @@ function Install-WingetPackage {
     }
 }
 
-function Test-PythonMinimumVersion {
-    $minimumVersion = [version]"3.11.0"
-    $result = [ordered]@{
-        Name = "python"
-        Ok = $false
-        Details = ""
-    }
-
-    $python = Get-Command python -ErrorAction SilentlyContinue
-    if (-not $python) {
-        $result.Details = "python not found (requires >= 3.11)"
-        return [pscustomobject]$result
-    }
-
-    $out = python --version 2>&1
-    $detailsText = ($out | Out-String).Trim()
-    $match = [regex]::Match($detailsText, "(\d+\.\d+\.\d+)")
-    if (-not $match.Success) {
-        $result.Details = "$detailsText (unable to parse version; requires >= 3.11)"
-        return [pscustomobject]$result
-    }
-
-    $versionText = $match.Groups[1].Value
-    $version = [version]$versionText
-    if ($version -ge $minimumVersion) {
-        $result.Ok = $true
-        $result.Details = $detailsText
-    }
-    else {
-        $result.Details = "$detailsText (requires >= 3.11)"
-    }
-
-    return [pscustomobject]$result
-}
-
-function Test-VSCode {
-    $result = [ordered]@{
-        Name = "vscode"
-        Ok = $false
-        Details = ""
-    }
-
-    $codeCmd = Get-Command code -ErrorAction SilentlyContinue
-    $candidates = @()
-    if ($codeCmd) {
-        $candidates += $codeCmd.Source
-    }
-    $candidates += @(
-        (Join-Path $env:LOCALAPPDATA "Programs\Microsoft VS Code\bin\code.cmd"),
-        (Join-Path $env:ProgramFiles "Microsoft VS Code\bin\code.cmd"),
-        (Join-Path ${env:ProgramFiles(x86)} "Microsoft VS Code\bin\code.cmd")
-    ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
-
-    foreach ($candidate in $candidates | Select-Object -Unique) {
-        if (-not (Test-Path $candidate)) {
-            continue
-        }
-        $out = & $candidate --version 2>&1
-        if ($LASTEXITCODE -eq 0) {
-            $result.Ok = $true
-        }
-        $result.Details = ($out | Out-String).Trim()
-        if ($result.Ok) {
-            return [pscustomobject]$result
-        }
-    }
-
-    if ([string]::IsNullOrWhiteSpace($result.Details)) {
-        $result.Details = "VS Code not found"
-    }
-    return [pscustomobject]$result
-}
-
 function Get-OptionalWingetPackageIds {
     return @(
         "jqlang.jq",
@@ -148,6 +77,51 @@ function Get-OptionalWingetPackageIds {
         "GitHub.GitLFS",
         "Docker.DockerDesktop"
     )
+}
+
+function Get-PdfPythonPackages {
+    return @(
+        [pscustomobject]@{ Package = "reportlab"; ImportName = "reportlab" },
+        [pscustomobject]@{ Package = "pypdf"; ImportName = "pypdf" },
+        [pscustomobject]@{ Package = "pdfplumber"; ImportName = "pdfplumber" },
+        [pscustomobject]@{ Package = "pdf2image"; ImportName = "pdf2image" },
+        [pscustomobject]@{ Package = "pillow"; ImportName = "PIL" }
+    )
+}
+
+function Get-PdfWingetPackageIds {
+    return @(
+        "oschwartz10612.Poppler",
+        "QPDF.QPDF"
+    )
+}
+
+function Test-PythonImport {
+    param(
+        [string]$ImportName,
+        [string]$CheckName = ""
+    )
+
+    $name = if ([string]::IsNullOrWhiteSpace($CheckName)) { $ImportName } else { $CheckName }
+    $result = [ordered]@{
+        Name = "python.$name"
+        Ok = $false
+        Details = ""
+    }
+
+    $python = Get-Command python -ErrorAction SilentlyContinue
+    if (-not $python) {
+        $result.Details = "python not found"
+        return [pscustomobject]$result
+    }
+
+    $code = "import importlib.util, sys; name='$ImportName'; spec=importlib.util.find_spec(name); print(spec.origin if spec and spec.origin else ('present' if spec else 'missing')); sys.exit(0 if spec else 1)"
+    $out = python -c $code 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        $result.Ok = $true
+    }
+    $result.Details = ($out | Out-String).Trim()
+    return [pscustomobject]$result
 }
 
 function Test-PythonModule {
@@ -371,8 +345,7 @@ function Get-Checks {
     $checks = @()
 
     $git = Test-Command -Name "git"
-    $python = Test-PythonMinimumVersion
-    $vscode = Test-VSCode
+    $python = Test-Command -Name "python"
     $node = Test-Command -Name "node"
     $npm = Test-Command -Name "npm"
     $gh = Test-Command -Name "gh"
@@ -380,10 +353,16 @@ function Get-Checks {
     $uv = Test-Command -Name "uv"
     $pyVirtualenv = Test-PythonModule -ModuleName "virtualenv"
     $pyPylint = Test-PythonModule -ModuleName "pylint"
+    $pdfPackageChecks = @()
+    foreach ($pdfPackage in (Get-PdfPythonPackages)) {
+        $pdfPackageChecks += (Test-PythonImport -ImportName $pdfPackage.ImportName -CheckName $pdfPackage.Package)
+    }
+    $pdftoppm = Test-Command -Name "pdftoppm" -VersionArgs "-v"
+    $pdfinfo = Test-Command -Name "pdfinfo" -VersionArgs "-v"
+    $qpdf = Test-Command -Name "qpdf"
 
     Add-CheckResult -List ([ref]$checks) -Name "git" -Ok $git.Ok -Details $git.Details
     Add-CheckResult -List ([ref]$checks) -Name "python" -Ok $python.Ok -Details $python.Details
-    Add-CheckResult -List ([ref]$checks) -Name "vscode" -Ok $vscode.Ok -Details $vscode.Details
     Add-CheckResult -List ([ref]$checks) -Name "node" -Ok $node.Ok -Details $node.Details
     Add-CheckResult -List ([ref]$checks) -Name "npm" -Ok $npm.Ok -Details $npm.Details
     Add-CheckResult -List ([ref]$checks) -Name "gh" -Ok $gh.Ok -Details $gh.Details
@@ -391,6 +370,12 @@ function Get-Checks {
     Add-CheckResult -List ([ref]$checks) -Name "uv" -Ok $uv.Ok -Details $uv.Details
     Add-CheckResult -List ([ref]$checks) -Name "python.virtualenv" -Ok $pyVirtualenv.Ok -Details $pyVirtualenv.Details
     Add-CheckResult -List ([ref]$checks) -Name "python.pylint" -Ok $pyPylint.Ok -Details $pyPylint.Details
+    foreach ($pdfPackageCheck in $pdfPackageChecks) {
+        Add-CheckResult -List ([ref]$checks) -Name $pdfPackageCheck.Name -Ok $pdfPackageCheck.Ok -Details $pdfPackageCheck.Details
+    }
+    Add-CheckResult -List ([ref]$checks) -Name "pdftoppm" -Ok $pdftoppm.Ok -Details $pdftoppm.Details
+    Add-CheckResult -List ([ref]$checks) -Name "pdfinfo" -Ok $pdfinfo.Ok -Details $pdfinfo.Details
+    Add-CheckResult -List ([ref]$checks) -Name "qpdf" -Ok $qpdf.Ok -Details $qpdf.Details
 
     $gitName = git config --global --get user.name 2>&1
     $gitEmail = git config --global --get user.email 2>&1
@@ -432,20 +417,16 @@ if (($ConfigureGit -or (-not [string]::IsNullOrWhiteSpace($GitUserName) -or -not
 $checks = Get-Checks
 
 if ($AutoInstall) {
-    $needPython = (($checks | Where-Object { $_.Name -eq "python" }).Ok -eq $false)
-    $needVsCode = (($checks | Where-Object { $_.Name -eq "vscode" }).Ok -eq $false)
     $needNode = (($checks | Where-Object { $_.Name -eq "node" }).Ok -eq $false) -or (($checks | Where-Object { $_.Name -eq "npm" }).Ok -eq $false)
     $needGh = (($checks | Where-Object { $_.Name -eq "gh" }).Ok -eq $false)
     $needRg = (($checks | Where-Object { $_.Name -eq "rg" }).Ok -eq $false)
     $needUv = (($checks | Where-Object { $_.Name -eq "uv" }).Ok -eq $false)
-
-    # Install baseline prerequisites first.
-    if ($needPython) {
-        $actions += (Install-WingetPackage -Id "Python.Python.3.13")
-    }
-    if ($needVsCode) {
-        $actions += (Install-WingetPackage -Id "Microsoft.VisualStudioCode")
-    }
+    $pythonOk = (($checks | Where-Object { $_.Name -eq "python" }).Ok -eq $true)
+    $needPyVirtualenv = (($checks | Where-Object { $_.Name -eq "python.virtualenv" }).Ok -eq $false)
+    $needPyPylint = (($checks | Where-Object { $_.Name -eq "python.pylint" }).Ok -eq $false)
+    $pythonScriptsPath = Convert-ToUserProfilePath -PathValue (Get-PythonUserScriptsPath)
+    $legacyPythonScriptsPath = Convert-ToUserProfilePath -PathValue (Get-PythonLegacyUserScriptsPath)
+    $shouldInstallPdfTools = $InstallPdfTools.IsPresent
 
     if ($needNode) {
         $actions += (Install-WingetPackage -Id "OpenJS.NodeJS.LTS")
@@ -473,17 +454,32 @@ if ($AutoInstall) {
             $actions += (Install-WingetPackage -Id $optionalPackageId)
         }
     }
-
-    $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
-    $machinePath = [Environment]::GetEnvironmentVariable("Path", "Machine")
-    $env:Path = [Environment]::ExpandEnvironmentVariables("$userPath;$machinePath")
-
-    $checks = Get-Checks
-    $pythonOk = (($checks | Where-Object { $_.Name -eq "python" }).Ok -eq $true)
-    $needPyVirtualenv = (($checks | Where-Object { $_.Name -eq "python.virtualenv" }).Ok -eq $false)
-    $needPyPylint = (($checks | Where-Object { $_.Name -eq "python.pylint" }).Ok -eq $false)
-    $pythonScriptsPath = Convert-ToUserProfilePath -PathValue (Get-PythonUserScriptsPath)
-    $legacyPythonScriptsPath = Convert-ToUserProfilePath -PathValue (Get-PythonLegacyUserScriptsPath)
+    if ($PromptPdfTools) {
+        $pdfPrompt = "Install PDF tools (reportlab, pypdf, pdfplumber, pdf2image, Pillow, Poppler, QPDF)? [y/N]"
+        $pdfResponse = (Read-Host $pdfPrompt | Out-String).Trim().ToLowerInvariant()
+        if ($pdfResponse -in @("y", "yes")) {
+            $shouldInstallPdfTools = $true
+        }
+    }
+    if ($shouldInstallPdfTools) {
+        if ($pythonOk) {
+            foreach ($pdfPackage in (Get-PdfPythonPackages)) {
+                $checkName = "python.$($pdfPackage.Package)"
+                $needPackage = (($checks | Where-Object { $_.Name -eq $checkName }).Ok -eq $false)
+                if ($needPackage) {
+                    $actions += (Install-PythonPackage -Package $pdfPackage.Package)
+                }
+            }
+        }
+        $needPoppler = (($checks | Where-Object { $_.Name -eq "pdftoppm" }).Ok -eq $false) -or (($checks | Where-Object { $_.Name -eq "pdfinfo" }).Ok -eq $false)
+        $needQpdf = (($checks | Where-Object { $_.Name -eq "qpdf" }).Ok -eq $false)
+        if ($needPoppler) {
+            $actions += (Install-WingetPackage -Id "oschwartz10612.Poppler")
+        }
+        if ($needQpdf) {
+            $actions += (Install-WingetPackage -Id "QPDF.QPDF")
+        }
+    }
 
     if ($pythonOk -and $needPyVirtualenv) {
         $actions += (Install-PythonPackage -Package "virtualenv")
@@ -501,13 +497,16 @@ if ($AutoInstall) {
     $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
     $machinePath = [Environment]::GetEnvironmentVariable("Path", "Machine")
     $env:Path = [Environment]::ExpandEnvironmentVariables("$userPath;$machinePath")
+
     $checks = Get-Checks
 }
 
 $installed = @($checks | Where-Object { $_.Ok })
-$missing = @($checks | Where-Object { -not $_.Ok -and $_.Name -in @("python", "vscode", "node", "npm", "gh", "rg", "uv", "python.virtualenv", "python.pylint") })
+$missing = @($checks | Where-Object { -not $_.Ok -and $_.Name -in @("node", "npm", "gh", "rg", "uv", "python.virtualenv", "python.pylint") })
+$pdfCheckNames = @("python.reportlab", "python.pypdf", "python.pdfplumber", "python.pdf2image", "python.pillow", "pdftoppm", "pdfinfo", "qpdf")
+$pdfMissing = @($checks | Where-Object { -not $_.Ok -and $_.Name -in $pdfCheckNames })
 $misconfigured = @($checks | Where-Object { -not $_.Ok -and $_.Name -in @("git.user.name", "git.user.email", "gh.auth") })
-$ready = (($missing.Length -eq 0) -and ($misconfigured.Length -eq 0))
+$ready = (($missing.Length -eq 0) -and ($misconfigured.Length -eq 0) -and ((-not $InstallPdfTools.IsPresent) -or ($pdfMissing.Length -eq 0)))
 
 [pscustomobject]@{
     Status = if ($ready) { "Ready" } else { "Not Ready" }
@@ -515,6 +514,7 @@ $ready = (($missing.Length -eq 0) -and ($misconfigured.Length -eq 0))
     Actions = @($actions)
     Installed = $installed
     Missing = $missing
+    PdfMissing = $pdfMissing
     Misconfigured = $misconfigured
     AllChecks = @($checks)
 } | ConvertTo-Json -Depth 6

@@ -1,106 +1,46 @@
 # Codex Windows Bootstrap Skill
 
-This skill prepares a Windows machine so Codex can work reliably without constant tool fallback logic.
+This skill bootstraps and verifies a Windows machine for Codex development workflows.
 
-The key design point: users are **not** expected to pre-install prerequisites.  
-The bootstrap process checks what is present and installs what is missing.
+## What It Checks
 
-## Why This Exists
+- Core tools: `git`, `python`, `node`, `npm`, `gh`, `rg`, `uv`
+- Python tooling support: `python -m virtualenv --version`, `python -m pylint --version` (installs missing Python packages in auto mode)
+- Optional PDF tooling: Python imports for `reportlab`, `pypdf`, `pdfplumber`, `pdf2image`, `PIL`, plus `pdftoppm`, `pdfinfo`, and `qpdf`
+- Git identity: `git config --global user.name/user.email`
+- GitHub auth: `gh auth status` (active account)
 
-Codex uses a consistent set of CLI tools repeatedly (`git`, `rg`, `gh`, `node`, `python`, etc.).  
-If those tools are missing, Codex has to try alternatives, recover from failures, and re-plan commands. That burns time and tokens.
+## What V2 Adds
 
-This skill standardizes the environment up front so Codex can execute the normal fast path:
+The script supports one-shot setup mode:
 
-- fewer failed command attempts
-- fewer fallback branches
-- lower token use across sessions
-- more predictable outcomes
-
-## What The Skill Owns
-
-When you run bootstrap in auto mode, the skill is responsible for:
-
-- checking required prerequisites
-- installing missing prerequisites
-- checking core tools used by Codex
-- installing missing core tools
-- checking Python helper modules used by Codex workflows
-- installing missing Python helper modules
-- validating Git identity and GitHub auth state
-
-You only need to respond to installer/UAC/login prompts when Windows or GitHub requires interaction.
-
-## Required Prerequisites (Checked And Installed By Bootstrap)
-
-The script treats these as baseline requirements and installs missing ones first in `-AutoInstall` mode:
-
-- `python` - Python interpreter (`>= 3.11`; installed via `Python.Python.3.13`)
-- `code` - Visual Studio Code CLI (`code --version`; installed via `Microsoft.VisualStudioCode`)
-
-## Core Tools (Checked And Installed By Bootstrap)
-
-The script checks these and installs missing ones in `-AutoInstall` mode:
-
-- `git` - Git version control
-- `node` - Node.js runtime
-- `npm` - Node package manager
-- `gh` - GitHub CLI
-- `rg` - ripgrep fast file/text search
-- `uv` - Astral `uv` Python/package environment tool
-
-## Python Tooling (Checked And Installed By Bootstrap)
-
-The script checks these and installs missing ones in `-AutoInstall` mode:
-
-- `python -m virtualenv --version` - `virtualenv` Python environment module
-- `python -m pylint --version` - `pylint` Python linter module
-
-It also ensures Python user Scripts is on user `PATH` using a `%USERPROFILE%`-based entry.
-
-## Optional Tools
-
-Optional utilities can be installed on request:
-
-- `jq` - command-line JSON processor
-- `fd` - fast file finder
-- `bat` - `cat` replacement with syntax highlighting
-- `Git LFS` - Git Large File Storage support
-- `Docker Desktop` - local container runtime and tooling
-
-Use `-PromptOptionalTools` to ask interactively, or `-InstallOptionalTools` to install without prompting.
+- `-AutoInstall` installs missing core tools with `winget`
+- `-AutoInstall` installs missing `virtualenv` module with `python -m pip install --user virtualenv`
+- `-AutoInstall` installs missing `pylint` module with `python -m pip install --user pylint`
+- `-AutoInstall` adds the Python user Scripts directory to user `PATH` using a `%USERPROFILE%`-based path entry
+- `-PromptOptionalTools` asks whether to install optional tools (`jq`, `fd`, `bat`, `Git LFS`, `Docker Desktop`)
+- `-InstallOptionalTools` installs optional tools without prompting
+- `-PromptPdfTools` asks whether to install PDF tooling (`reportlab`, `pypdf`, `pdfplumber`, `pdf2image`, `Pillow`, Poppler, QPDF)
+- `-InstallPdfTools` installs PDF tooling without prompting
+- then re-runs checks and reports `Ready` or `Not Ready`
 
 ## Install Skill On A New Machine
 
-1. Copy this folder to `%USERPROFILE%\.codex\skills\codex-windows-bootstrap`
-2. Restart Codex (or open a new Codex session)
-3. Trigger with `Use $codex-windows-bootstrap to bootstrap this machine.`
-
-## Install And Use After Codex Is Already Installed
-
-If Codex is already installed on the machine, install this skill with these steps:
-
-1. Open PowerShell.
-2. Create the skill directory if it does not exist:
-```powershell
-New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.codex\skills\codex-windows-bootstrap"
-```
-3. Copy this repo's files into that directory (`README.md`, `SKILL.md`, `agents`, `scripts`).
-4. Restart Codex (or start a new Codex session) so it loads the skill.
-5. In Codex, run:
-```text
-Use $codex-windows-bootstrap to bootstrap this machine.
-```
+1. Copy this folder to:
+   `%USERPROFILE%\.codex\skills\codex-windows-bootstrap`
+2. Restart Codex (or start a new session).
+3. Trigger with:
+   `Use $codex-windows-bootstrap to bootstrap this machine.`
 
 ## Script Usage
 
-Audit only (read-only check):
+Audit only:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap-codex-windows.ps1
 ```
 
-Auto-install missing required tools:
+Auto-install missing tools:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap-codex-windows.ps1 -AutoInstall
@@ -118,13 +58,25 @@ Auto-install including optional tools without prompting:
 powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap-codex-windows.ps1 -AutoInstall -InstallOptionalTools
 ```
 
+Auto-install and ask whether PDF tools should be installed:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap-codex-windows.ps1 -AutoInstall -PromptPdfTools
+```
+
+Auto-install including PDF tools without prompting:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap-codex-windows.ps1 -AutoInstall -InstallPdfTools
+```
+
 Set Git identity:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap-codex-windows.ps1 -ConfigureGit -GitUserName "your-name" -GitUserEmail "you@example.com"
 ```
 
-Combined setup:
+Combined:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap-codex-windows.ps1 -AutoInstall -ConfigureGit -GitUserName "your-name" -GitUserEmail "you@example.com"
@@ -132,11 +84,12 @@ powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap-codex-windows.ps1 -
 
 ## Output
 
-The script returns JSON with:
+The script outputs JSON with:
 
-- `Status` (`Ready` or `Not Ready`)
+- `Status` (`Ready` / `Not Ready`)
 - `Actions` (install/config actions attempted)
 - `Installed`
 - `Missing`
+- `PdfMissing`
 - `Misconfigured`
 - `AllChecks`
