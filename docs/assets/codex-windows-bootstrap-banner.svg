@@ -1,0 +1,33 @@
+<svg width="1280" height="420" viewBox="0 0 1280 420" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="420" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0B1220"/>
+      <stop offset="1" stop-color="#1B2A4A"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="200" y1="100" x2="1080" y2="320" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#22D3EE"/>
+      <stop offset="1" stop-color="#60A5FA"/>
+    </linearGradient>
+    <filter id="glow" x="0" y="0" width="1280" height="420" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="24" result="blur"/>
+      <feBlend in="SourceGraphic" in2="blur" mode="screen"/>
+    </filter>
+  </defs>
+  <rect width="1280" height="420" rx="24" fill="url(#bg)"/>
+  <circle cx="170" cy="100" r="120" fill="#1E3A8A" fill-opacity="0.3"/>
+  <circle cx="1120" cy="340" r="150" fill="#0891B2" fill-opacity="0.2"/>
+  <path d="M180 300C300 170 420 320 540 200C660 80 780 250 900 165C980 108 1045 128 1110 168" stroke="url(#accent)" stroke-width="8" stroke-linecap="round" filter="url(#glow)"/>
+  <g fill="#E2E8F0" fill-opacity="0.9">
+    <rect x="170" y="145" width="190" height="20" rx="10"/>
+    <rect x="170" y="180" width="260" height="14" rx="7" fill-opacity="0.7"/>
+    <rect x="170" y="205" width="230" height="14" rx="7" fill-opacity="0.7"/>
+  </g>
+  <g fill="#93C5FD" fill-opacity="0.8">
+    <rect x="900" y="120" width="210" height="24" rx="12"/>
+    <rect x="900" y="154" width="160" height="14" rx="7" fill-opacity="0.7"/>
+    <rect x="900" y="178" width="185" height="14" rx="7" fill-opacity="0.7"/>
+  </g>
+  <text x="640" y="95" text-anchor="middle" fill="#E2E8F0" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700" letter-spacing="2.2">CODEX SKILL</text>
+  <text x="640" y="158" text-anchor="middle" fill="#F8FAFC" font-family="Segoe UI, Arial, sans-serif" font-size="56" font-weight="800">Windows Bootstrap</text>
+  <text x="640" y="204" text-anchor="middle" fill="#BFDBFE" font-family="Segoe UI, Arial, sans-serif" font-size="23" font-weight="600">Audit, install, and verify a production-ready Codex workstation</text>
+</svg>

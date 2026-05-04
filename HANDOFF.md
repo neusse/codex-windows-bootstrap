@@ -1,7 +1,7 @@
 # Project Handoff
 
-Last Updated Local: 2026-05-01 19:00 PDT
-Last Updated UTC: 2026-05-02T02:00:45Z
+Last Updated Local: 2026-05-04 07:54 PDT
+Last Updated UTC: 2026-05-04T14:54:13Z
 Stale After Hours: 24
 Staleness: FRESH
 
@@ -10,42 +10,51 @@ Staleness: FRESH
 - Path: `C:\Users\georg\Codex_Projects\codex-windows-bootstrap`
 - Branch: `master`
 - Remote: `origin` -> `https://github.com/neusse/codex-windows-bootstrap.git`
-- Last known commit: `9d96e87 Clarify tool names and add post-install skill setup section`
+- Last known commit: `f373bb8 Sync global skill updates`
 
 ## Current State
 
-- No prior `HANDOFF.md` was present when this session started.
-- The repo was clean and even with `origin/master` before syncing global skill changes.
-- Global skill source reviewed: `C:\Users\georg\.codex\skills\codex-windows-bootstrap`.
-- Synced global skill changes into repo files:
-  - `README.md`
-  - `SKILL.md`
-  - `scripts\bootstrap-codex-windows.ps1`
-- `agents\openai.yaml` already matched the global skill copy.
-- Old global `*.sync-conflict-*` files were detected in the global skill folder but were not copied into the repo.
+- Added repo-level agent policy file:
+  - `AGENTS.md`
+- Added project-local skill package structure:
+  - `.codex\skills\codex-windows-bootstrap\SKILL.md`
+  - `.codex\skills\codex-windows-bootstrap\README.md`
+  - `.codex\skills\codex-windows-bootstrap\scripts\bootstrap-codex-windows.ps1`
+  - `.codex\skills\codex-windows-bootstrap\docs\assets\codex-windows-bootstrap-banner.svg`
+- Updated root `README.md` with a centered hero/banner block and badges.
+- Root skill files were moved out of the repository root into project-level `.codex` structure:
+  - `SKILL.md` deleted from root
+  - `scripts\bootstrap-codex-windows.ps1` deleted from root
+- Added root docs asset path:
+  - `docs\assets\codex-windows-bootstrap-banner.svg`
 
 ## Validation Status
 
-- Passed: PowerShell parser check for `scripts\bootstrap-codex-windows.ps1`.
-- Passed: `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\bootstrap-codex-windows.ps1` returned `Status: Ready`.
-- Noted: optional PDF tools are reported in `PdfMissing`; they are not required unless running with `-InstallPdfTools`.
-- Pending: commit and push to GitHub.
+- Passed: project-local skill tree exists under `.codex\skills\codex-windows-bootstrap`.
+- Passed: `AGENTS.md` exists and now uses portable repo-relative skill path (`.codex/skills/codex-windows-bootstrap`).
+- Not run this session: bootstrap script execution from new project-local skill path.
+- Pending: review final repo layout intent (keep or remove duplicated root `docs/` banner asset).
 
 ## Resume Steps
 
-1. Review the current diff:
-   ```powershell
-   git diff
-   ```
-2. Check repository state:
+1. Review changed/deleted/untracked files:
    ```powershell
    git status --short --branch
    ```
-3. Commit and push:
+2. Inspect full diff and confirm desired final structure:
    ```powershell
-   git add README.md SKILL.md scripts\bootstrap-codex-windows.ps1 HANDOFF.md
-   git commit -m "Sync global skill updates"
+   git diff
+   ```
+3. If keeping project-local skill packaging, stage and commit:
+   ```powershell
+   git add AGENTS.md README.md .codex docs HANDOFF.md
+   git add -u
+   git commit -m "Add project-level Codex skill packaging and startup agent policy"
    git push origin master
+   ```
+4. Optional validation run from project-local skill copy:
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\.codex\skills\codex-windows-bootstrap\scripts\bootstrap-codex-windows.ps1
    ```
 
 ## Blockers
@@ -54,8 +63,9 @@ Staleness: FRESH
 
 ## Open Questions
 
-- Confirm whether the PDF tooling additions are intended to replace the earlier Python 3.11+ and VS Code pass/fail gates. The current global skill copy removes those gates, so the repo sync follows that source of truth.
+- Should root `README.md` continue to include the hero/banner section, or should it be reverted to a plain technical README?
+- Keep both root `docs\assets` and `.codex\skills\...\docs\assets`, or consolidate to one location?
 
 ## Change Log
 
-- 2026-05-01 19:00 PDT: Created initial handoff after syncing global skill changes into the repository copy and validating the script.
+- 2026-05-04 07:54 PDT: Added `AGENTS.md`, created project-level `.codex\skills\codex-windows-bootstrap` package, and updated handoff for dropoff.

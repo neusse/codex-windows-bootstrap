@@ -1,4 +1,16 @@
-# Codex Windows Bootstrap Skill
+<p align="center">
+  <img src="docs/assets/codex-windows-bootstrap-banner.svg" alt="Codex Windows Bootstrap banner" width="100%" />
+</p>
+
+<h1 align="center">Codex Windows Bootstrap Skill</h1>
+
+<p align="center"><strong>Bootstrap, validate, and harden a Windows machine for Codex development in one pass.</strong></p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/PowerShell-5.1%2B-0F4C81?logo=powershell&logoColor=white" alt="PowerShell 5.1+" />
+  <img src="https://img.shields.io/badge/Platform-Windows-0078D4?logo=windows&logoColor=white" alt="Platform Windows" />
+  <img src="https://img.shields.io/badge/Mode-Audit%20%7C%20Auto--Install-22C55E" alt="Mode Audit or Auto-Install" />
+</p>
 
 This skill bootstraps and verifies a Windows machine for Codex development workflows.
 
